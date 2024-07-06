@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MIDI 2 Entry</title>
+    <!-- MVP CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
+  </head>
+  <body>
+    <header>
+      <h1>MIDI 2 Entry</h1>
+    </header>
+    <main>
+      <input type="file" id="file" />
+      <button id="convert">결과물 복사</button>
+    </main>
+
+    <!-- TONEJS/midi -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi"></script>
+    <script>
+      const file = document.getElementById("file");
+      const convert = document.getElementById("convert");
+      convert.addEventListener("click", async () => {
+        const fileReader = new FileReader();
+
+        fileReader.onload = (e) => {
+          const midi = new Uint8Array(e.target.result);
+
+          const midiFile = new Midi(midi);
+
+          const globalEvents = {};
+
+          midiFile.tracks.forEach((track) => {
+            //notes are an array
+            const notes = track.notes;
+            notes.forEach((note) => {
+              //note.midi, note.time, note.duration, note.name
+              const time = note.time;
+              const duration = note.duration;
+              const noteNumber = note.midi;
+              if (!(time in globalEvents)) {
+                globalEvents[time] = [];
+              }
+              globalEvents[time].push({
+                duration: duration,
+                note: noteNumber,
+              });
+            });
+          });
+
+          const grevents = [];
+          let lastEventTime = 0;
+          for (const key of Object.keys(globalEvents).sort((a, b) => {
+            return parseFloat(a) - parseFloat(b);
+          })) {
+            const time = parseFloat(key);
+            const delta = time - lastEventTime;
+            const data = globalEvents[parseFloat(key)];
+            grevents.push(
+              `${delta}!${data
+                .map((d) => `${d.duration}&${d.note}`)
+                .join(",")}$`
+            );
+
+            lastEventTime = time;
+          }
+
+          navigator.clipboard.writeText(grevents.join("")).then(
+            function () {
+              console.log("Async: Copying to clipboard was successful!");
+              alert("클립보드에 복사되었습니다.");
+            },
+            function (err) {
+              console.error("Async: Could not copy text: ", err);
+            }
+          );
+        };
+
+        fileReader.readAsArrayBuffer(file.files[0]);
+      });
+    </script>
+  </body>
+</html>
